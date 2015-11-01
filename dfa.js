@@ -14,7 +14,7 @@ function DFA(alphabet, delta, initial, final) {
   this.delta = delta;
   this.initial = initial;
   this.final = final.slice(0)//.sort();
-  this.minimized = false; // internal property: was this produced by minimization?
+  this.isMinimized = false; // internal property: was this produced by minimization?
   
   // todo sanity checking (cf python)
 }
@@ -29,12 +29,25 @@ DFA.prototype.process = function(str) {
   return this.final.indexOf(state) !== -1;
 }
 
+DFA.prototype.to_NFA = function() {
+  /*  return the NFA which is this DFA. */
+  var newDelta = {};
+  for (var i = 0; i < this.states.length; ++i) {
+    var state = this.states[i];
+    newDelta[state] = {};
+    for (var j = 0; j < this.alphabet.length; ++j) {
+      newDelta[state][this.alphabet[j]] = [this.delta[state][this.alphabet[j]]];
+    }
+  }
+  return new NFA(this.alphabet, newDelta, [this.initial], this.final);
+}
+
 DFA.prototype.minimized = function() {
   /*  non-destructively return the minimal DFA equivalent to this one.
       state names will become meaningless.
       Brzozowski's algorithm = best algorithm */
   var out = this.to_NFA().reversed().to_DFA().to_NFA().reversed().to_DFA();
-  out.minimized = true;
+  out.isMinimized = true;
   return out;
 }
 
@@ -45,7 +58,7 @@ DFA.prototype.without_unreachables = function() { // todo naming conventions
   var processing = [this.initial];
   while (processing.length > 0) {
     var cur = processing.shift();
-    var map = delta[cur];
+    var map = this.delta[cur];
     for (var i = 0; i < this.alphabet.length; ++i) {
       var next = map[this.alphabet[i]];
       if (!reached[next]) {
@@ -57,9 +70,9 @@ DFA.prototype.without_unreachables = function() { // todo naming conventions
   var newStates = Object.getOwnPropertyNames(reached);
   var newDelta = {};
   for (i = 0; i < newStates.length; ++i) {
-    newDelta[newStates[i]] = delta[newStates[i]];
+    newDelta[newStates[i]] = this.delta[newStates[i]];
   }
-  var newFinal = final.filter(reached.hasOwnProperty.bind(reached));
+  var newFinal = this.final.filter(reached.hasOwnProperty.bind(reached));
   return new DFA(this.alphabet, newStates, newDelta, this.initial, newFinal);
 }
 
@@ -72,7 +85,7 @@ DFA.prototype.find_passing = function() {
   var processing = [this.initial];
   while (processing.length > 0) {
     var cur = processing.shift();
-    var map = delta[cur];
+    var map = this.delta[cur];
     for (var i = 0; i < this.alphabet.length; ++i) {
       var next = map[this.alphabet[i]];
       if (reached[next] === undefined) {
@@ -93,7 +106,7 @@ function NFA(alphabet, delta, initial, final) {
       delta an object such that delta[state][sym] = list of states
         Its own properties are the states of the automaton.
         the epsilon transition is held to be the empty string. so delta[state][''] should also be a list of states.
-        it is permissible for delta[state][sym] to be undefined, which will be interpreted the empty set.
+        it is permissible for delta[state][sym] to be undefined, which will be interpreted as the empty set.
       initial a list of start states (in our formalism, multiple start states are allowed; this is obviously equivalent and simplifies some operations, like reversal)
       final a list of accepting states */
   this.alphabet = alphabet.slice(0)//.sort();
@@ -128,17 +141,22 @@ NFA.prototype.epsilon_closure = function(states) {
 }
 
 NFA.prototype.step = function(states, sym) {
-  /*  Given a set of states and a (nonempty) symbol, give the result of running the machine
+  /*  Given a set of states and a symbol, give the result of running the machine
       for one step. As a prerequisite, states should be equal to its own epsilon closure.
-      Does perform epsilon closure at the end. */
+      Takes epsilon closure at the end. */
   // todo sanity checking? (sym in alphabet)
-  states = states.map(function(s) {
-    var out = this.delta[state][sym];
+  var delta = this.delta;
+  states = states.map(function(state) {
+    var out = delta[state][sym];
     if (out === undefined) {
       return [];
     }
     return out;
-  }).reduce(function(a, b) { return a.concat(b); }); // no flatmap, so map + flatten.
+  });
+  if (states.length === 0) {
+    return states;
+  }
+  states = states.reduce(function(a, b) { return a.concat(b); }); // no flatmap, so map + flatten.
   return this.epsilon_closure(states);
 }
 
@@ -163,6 +181,7 @@ NFA.prototype.to_DFA = function() {
     /*  Helper: set of states -> canonical (string) name */
     return states.map(this.states.indexOf.bind(this.states)).sort().join(' ');
   }
+  get_name = get_name.bind(this);
   
   var processing = [this.epsilon_closure(this.initial)];
   var newInitial = get_name(processing[0]);
@@ -184,11 +203,7 @@ NFA.prototype.to_DFA = function() {
     
     for (i = 0; i < this.alphabet.length; ++i) {
       var sym = this.alphabet[i];
-      var next = [];
-      for (var j = 0; j < cur.length; ++j) {
-        next = next.concat(this.step(cur[j], sym));
-      }
-      next = deduped(next);
+      var next = this.step(cur, sym);
       var nextName = get_name(next);
       newDelta[curName][sym] = nextName;
       if (seen.indexOf(nextName) === -1) { // todo this and all other indexOfs
@@ -220,6 +235,9 @@ NFA.prototype.reversed = function() {
     for (var j = 0; j <= this.alphabet.length; ++j) {
       var sym = (j == this.alphabet.length) ? '' : this.alphabet[j];
       var res = this.delta[state][sym];
+      if (res === undefined) {
+        continue;
+      }
       for (var k = 0; k < res.length; ++k) { // todo three nested loops is almost certainly not the best way to do this.
         var existing = newDelta[res[k]][sym];
         newDelta[res[k]][sym] = (existing === undefined) ? [state] : deduped(existing.concat([state])); // todo could just update in-place
@@ -236,3 +254,19 @@ function deduped(l) { // non-destructively remove duplicates from list. also sor
   return l.filter(function(val, index, arr) { return arr.indexOf(val) == index; }).sort();
 }
 
+
+
+var x = new DFA(
+  ['a', 'b'],
+  {
+    0: {'a': '0', 'b': '1'},
+    1: {'a': '0', 'b': '2'},
+    2: {'a': '0', 'b': '1'},
+    3: {'a': '0', 'b': '3'},
+  },
+  '0',
+  ['1']
+);
+console.log(x.without_unreachables())
+console.log(x.minimized())
+console.log(x.find_passing())
