@@ -77,10 +77,19 @@ DFA.prototype.without_unreachables = function() { // todo naming conventions
   return new DFA(this.alphabet, newDelta, this.initial, newFinal);
 }
 
+DFA.prototype.complemented = function() {
+  /*  non-destructively produce DFA accepting exactly the strings this does not */
+  var final = this.final;
+  return new DFA(this.alphabet, this.delta, this.initial, this.states.filter(function(s){return final.indexOf(s) === -1;}));
+}
+
 DFA.prototype.find_passing = function() {
   /*  Returns one of the shortest strings which will be accepted by the DFA, if such exists.
       Otherwise returns null. */
   // todo dedupe code between this and without_unreachables
+  if (this.final.indexOf(this.initial) !== -1) {
+    return '';
+  }
   var reached = {};
   reached[this.initial] = '';
   var processing = [this.initial];
@@ -103,7 +112,7 @@ DFA.prototype.find_passing = function() {
 
 DFA.prototype.intersect = function(other) {
   /*  Return a DFA for the language which is the intersection of this machine's and other's.
-      Other must be over the same alphabet. */
+      `other` must be over the same alphabet. */
   // todo sanity checking (alphabets)
   function get_name(pair) {
     return this.states.indexOf(pair[0]) + ' ' + other.states.indexOf(pair[1]);
@@ -139,6 +148,17 @@ DFA.prototype.intersect = function(other) {
   }
   
   return new DFA(this.alphabet, newDelta, newInitial, newFinal);
+}
+
+DFA.prototype.find_equivalence_counterexamples = function(other) {
+  /*  Return a pair of strings such that the first string is accepted by the first machine,
+      but not the second, and the second string is accepted by the second, but not the first.
+      If no such string exists in either case, the corresponding value will be null.
+      `other` must be over the same alphabet. */
+  return [
+    this.intersect(other.complemented()).find_passing(),
+    other.intersect(this.complemented()).find_passing()
+  ];
 }
 
 DFA.prototype.serialized = function() {
@@ -361,7 +381,16 @@ var y = new DFA( // contains an even number of a's
   ['0']
 );
 
-console.log(x.without_unreachables())
-var v = x.intersect(y).minimized();
-console.log(JSON.parse(v.serialized()));
-console.log(v.find_passing());
+var z = new DFA( // contains a positive even number of a's
+  ['a', 'b'],
+  {
+    0: {'a': '1', 'b': '0'},
+    1: {'a': '2', 'b': '1'},
+    2: {'a': '3', 'b': '2'},
+    3: {'a': '2', 'b': '3'},
+  },
+  '0',
+  ['2']
+);
+
+console.log(JSON.stringify(y.find_equivalence_counterexamples(z)));
