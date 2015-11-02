@@ -154,6 +154,7 @@ DFA.prototype.find_equivalence_counterexamples = function(other) {
   /*  Return a pair of strings such that the first string is accepted by the first machine,
       but not the second, and the second string is accepted by the second, but not the first.
       If no such string exists in either case, the corresponding value will be null.
+      Hence, if machines are equivalent, returns [null, null]. TODO can also check equivalence by comparing serializations
       `other` must be over the same alphabet. */
   return [
     this.intersect(other.complemented()).find_passing(),
@@ -359,29 +360,17 @@ function deduped(l) { // non-destructively remove duplicates from list. also sor
 
 
 
-var x = new DFA( // ends in an odd number of b's
-  ['a', 'b'],
-  {
+var oddb = new DFA( // ends in an odd number of b's
+  ['a', 'b'], // alphabet
+  { // transition table
     0: {'a': '0', 'b': '1'},
-    1: {'a': '0', 'b': '2'},
-    2: {'a': '0', 'b': '1'},
-    3: {'a': '0', 'b': '3'},
+    1: {'a': '0', 'b': '0'},
   },
-  '0',
-  ['1']
+  '0', // start state
+  ['1'] // accepting states
 );
 
-var y = new DFA( // contains an even number of a's
-  ['a', 'b'],
-  {
-    0: {'a': '1', 'b': '0'},
-    1: {'a': '0', 'b': '1'},
-  },
-  '0',
-  ['0']
-);
-
-var z = new DFA( // contains a positive even number of a's
+var evena = new DFA( // contains a positive even number of a's
   ['a', 'b'],
   {
     0: {'a': '1', 'b': '0'},
@@ -393,4 +382,18 @@ var z = new DFA( // contains a positive even number of a's
   ['2']
 );
 
-console.log(JSON.stringify(y.find_equivalence_counterexamples(z)));
+console.log(oddb.intersect(evena).find_passing()); // 'aab'
+
+var zoz = new NFA( // strings containing '010' as a substring.
+  ['0', '1'], // alphabet
+  { // transition table. Note that transitions are to sets of states, and that transitions can be absent (equivalent to mapping to the empty set).
+    0: {0: ['0', '1'], 1: ['0']},
+    1: {'': ['0'], 1: ['2']}, // Note also that states can transition on the empty string (i.e., an epsilon transition), though it's entirely redundant in this particular automaton.
+    2: {0: ['3']},
+    3: {0: ['3'], 1: ['3']},
+  },
+  ['0'], // set of initial states
+  ['3'] // set of accepting states
+);
+
+console.log(JSON.stringify(JSON.parse(zoz.minimized().serialized()), null, '  ')); // prints a human-readable serialization of the minimal equivalent DFA.
