@@ -20,7 +20,7 @@ function DFA(alphabet, delta, initial, final) {
   // todo sanity checking (cf python)
 }
 
-DFA.prototype.process = function(str) {
+DFA.prototype.accepts = function(str) {
   /* boolean: does my language contain the given string? */
   // todo sanity checking (str in alphabet*)
   var state = this.initial;
@@ -264,7 +264,7 @@ NFA.prototype.step = function(states, sym) {
   return this.epsilon_closure(states);
 }
 
-NFA.prototype.process = function(str) {
+NFA.prototype.accepts = function(str) {
   /* boolean: does my language contain the given string? */
   // todo sanity checking (str in alphabet*)
   var states = this.epsilon_closure(this.initial);
@@ -509,7 +509,7 @@ var evena = new DFA( // contains a positive even number of a's
   ['2']
 );
 
-console.log(oddb.intersect(evena).find_passing()); // 'aab'
+//console.log(oddb.intersect(evena).find_passing()); // 'aab'
 
 var zoz = new NFA( // strings containing '010' as a substring.
   ['0', '1'], // alphabet
@@ -531,4 +531,7 @@ var zoz = new NFA( // strings containing '010' as a substring.
 // 
 // console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
 // 
-console.log(NFA.for('ab', ['a', 'b']));
+//console.log(NFA.for('ab', ['a', 'b']));
+
+global['DFA'] = DFA;
+global['NFA'] = NFA;
