@@ -9,6 +9,7 @@ function DFA(alphabet, delta, initial, final) {
         Its own properties are the states of the automaton.
       initial the name of the start state
       final a list of accepting states */
+  // TODO automatically sanitize names?
   this.alphabet = alphabet.slice(0)//.sort();
   this.states = Object.getOwnPropertyNames(delta).sort();
   this.delta = delta;
@@ -73,7 +74,7 @@ DFA.prototype.without_unreachables = function() { // todo naming conventions
     newDelta[newStates[i]] = this.delta[newStates[i]];
   }
   var newFinal = this.final.filter(reached.hasOwnProperty.bind(reached));
-  return new DFA(this.alphabet, newStates, newDelta, this.initial, newFinal);
+  return new DFA(this.alphabet, newDelta, this.initial, newFinal);
 }
 
 DFA.prototype.find_passing = function() {
@@ -99,6 +100,88 @@ DFA.prototype.find_passing = function() {
   }
   return null;
 }
+
+DFA.prototype.intersect = function(other) {
+  /*  Return a DFA for the language which is the intersection of this machine's and other's.
+      Other must be over the same alphabet. */
+  // todo sanity checking (alphabets)
+  function get_name(pair) {
+    return this.states.indexOf(pair[0]) + ' ' + other.states.indexOf(pair[1]);
+  }
+  get_name = get_name.bind(this);
+  
+  // this algorithm is very similar to NFA.prototype.to_DFA, and is, todo, yet another BFS
+  var processing = [[this.initial, other.initial]];
+  var newInitial = get_name(processing[0]);
+  var newFinal = [];
+  var seen = [newInitial];
+  var newDelta = {};
+  
+  while (processing.length > 0) {
+    var cur = processing.pop();
+    var curName = get_name(cur);
+    newDelta[curName] = {};
+    
+    if (this.final.indexOf(cur[0]) !== -1 && other.final.indexOf(cur[1]) !== -1) {
+      newFinal.push(curName);
+    }
+    
+    for (var i = 0; i < this.alphabet.length; ++i) {
+      var sym = this.alphabet[i];
+      var next = [this.delta[cur[0]][sym], other.delta[cur[1]][sym]];
+      var nextName = get_name(next);
+      newDelta[curName][sym] = nextName;
+      if (seen.indexOf(nextName) === -1) { // todo this and all other indexOfs
+        seen.push(nextName);
+        processing.push(next);
+      }
+    }
+  }
+  
+  return new DFA(this.alphabet, newDelta, newInitial, newFinal);
+}
+
+DFA.prototype.serialized = function() {
+  /*  Give a string representing a JSON serialization of this DFA, discarding state names.
+      Deterministic in the following strong sense: if two DFAs are identical up to state
+      names, then they will serialize to the same string. */
+  function get_name(state) {
+    /*  Helper: state -> canonical name */
+    return this.states.indexOf(state);
+  }
+  get_name = get_name.bind(this);
+  
+  function reprEscape(str) { // does not handle unicode or exceptional cases properly.
+    return str.replace(/["\\]/g, function(c) { return '\\' + c; })
+      .replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+  }
+  
+  var alphabet = this.alphabet.slice(0).sort();
+  var deltaStr = '{';
+  for (var i = 0; i < this.states.length; ++i) {
+    if (i !== 0) {
+      deltaStr += ', ';
+    }
+    deltaStr += '"' + i + '": {';
+    for (var j = 0; j < alphabet.length; ++j) {
+      var sym = alphabet[j];
+      if (j !== 0) {
+        deltaStr += ', ';
+      }
+      deltaStr += '"' + reprEscape(sym) + '": "' + get_name(this.delta[this.states[i]][sym]) + '"';
+    }
+    deltaStr += '}';
+  }
+  deltaStr += '}';
+  
+  var out = '{';
+  out += '"alphabet": [' + alphabet.map(reprEscape).map(function(c){return '"' + c + '"';}).join(',') + '], ';
+  out += '"delta": ' + deltaStr + ', ';
+  out += '"initial": "' + get_name(this.initial) + '", ';
+  out += '"final": [' + this.final.map(get_name).sort().map(function(c){return '"' + c + '"';}).join(',') + ']}';
+  return out;
+}
+
 
 
 function NFA(alphabet, delta, initial, final) {
@@ -256,7 +339,7 @@ function deduped(l) { // non-destructively remove duplicates from list. also sor
 
 
 
-var x = new DFA(
+var x = new DFA( // ends in an odd number of b's
   ['a', 'b'],
   {
     0: {'a': '0', 'b': '1'},
@@ -267,6 +350,18 @@ var x = new DFA(
   '0',
   ['1']
 );
+
+var y = new DFA( // contains an even number of a's
+  ['a', 'b'],
+  {
+    0: {'a': '1', 'b': '0'},
+    1: {'a': '0', 'b': '1'},
+  },
+  '0',
+  ['0']
+);
+
 console.log(x.without_unreachables())
-console.log(x.minimized())
-console.log(x.find_passing())
+var v = x.intersect(y).minimized();
+console.log(JSON.parse(v.serialized()));
+console.log(v.find_passing());
