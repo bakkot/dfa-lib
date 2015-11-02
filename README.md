@@ -9,7 +9,7 @@ Features
 
 * Parsing. 
 
-* Various manipulations: converting NFAs to DFAs, finding minimal DFAs, taking intersections, etc.
+* Various manipulations: converting NFAs to DFAs, finding minimal DFAs, taking intersections, Kleene stars, etc.
 
 * Equivalence counterexamples: given two automata, find strings accepted by one and not the other, if they are not equivalent.
 

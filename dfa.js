@@ -236,7 +236,7 @@ NFA.prototype.epsilon_closure = function(states) {
     }
     for (var i = 0; i < next.length; ++i) {
       if (processing.indexOf(next[i]) === -1 && out.indexOf(next[i]) === -1) { // TODO consider alternatives to indexOf
-        process.push(next[i]);
+        processing.push(next[i]);
         out.push(next[i]);
       }
     }
@@ -351,13 +351,126 @@ NFA.prototype.reversed = function() {
   return new NFA(this.alphabet, newDelta, this.final, this.initial);
 }
 
+NFA.prototype._clone = function(prefix) {
+  /*  Internal method. Return a copy of this automaton.
+      State names will become integers prefixed with 'prefix'. */ // TODO keep old names?
+  function get_name(state) {
+    /*  Helper: state -> canonical name */
+    return '' + prefix + this.states.indexOf(state);
+  }
+  get_name = get_name.bind(this);
+
+  var newDelta = {};
+  for (var i = 0; i < this.states.length; ++i) {
+    var state = this.states[i];
+    var curName = get_name(state);
+    newDelta[curName] = {};
+    for (var j = 0; j <= this.alphabet.length; ++j) {
+      var sym = (j == this.alphabet.length) ? '' : this.alphabet[j];
+      var res = this.delta[state][sym];
+      if (res === undefined) {
+        continue;
+      }
+      newDelta[curName][sym] = res.map(get_name);
+    }
+  }
+  return new NFA(this.alphabet, newDelta, this.initial.map(get_name), this.final.map(get_name));
+}
+
+NFA.prototype.concat = function(other) {
+  /*  Give an NFA for the language given by concatenating all strings from this machine's
+      language with all strings from other's language. E.g., if 'x' only accepts strings
+      of a's and y only accepts strings of b's, the result accepts any string of a's
+      followed by 'b's.
+      `other` must be over the same alphabet. */
+  // todo sanity checking (alphabets)
+  var newThis = this._clone('q');
+  var newThat = other._clone('r'); // these two machines now do not have conflicting state names.
+  
+  for (var i = 0; i < newThat.states.length; ++i) {
+    var state = newThat.states[i];
+    newThis.delta[state] = newThat.delta[state];
+  }
+  
+  for (i = 0; i < newThis.final.length; ++i) {
+    var state = newThis.final[i];
+    var cur = newThis.delta[state][''];
+    if (cur === undefined) {
+      cur = newThis.delta[state][''] = [];
+    }
+    for (var j = 0; j < newThat.initial.length; ++j) {
+      cur.push(newThat.initial[j]);
+    }
+  }
+  
+  return new NFA(this.alphabet, newThis.delta, newThis.initial, newThat.final);
+}
+
+NFA.prototype.union = function(other) {
+  /*  Give an NFA for the language containing all strings in this machine's
+      language and all strings in other's language. E.g., if 'x' only accepts strings
+      of a's and y only accepts strings of b's, the result accepts any string of a's
+      or any string of 'b's.
+      `other` must be over the same alphabet. */
+  // todo sanity checking (alphabets)
+  var newThis = this._clone('q');
+  var newThat = other._clone('r'); // these two machines now do not have conflicting state names.
+  
+  for (var i = 0; i < newThat.states.length; ++i) {
+    var state = newThat.states[i];
+    newThis.delta[state] = newThat.delta[state];
+  }
+  // TODO the above code is duplicated in concat
+  
+  newThis.delta['s'] = {'': newThis.initial.concat(newThat.initial)};
+  
+  return new NFA(this.alphabet, newThis.delta, ['s'], newThis.final.concat(newThat.final));
+}
+
+NFA.prototype.star = function() {
+  /*  Give the Kleene star of this NFA. */
+  var newThis = this._clone('q');
+  newThis.delta['s'] = {'': newThis.initial};
+  for (var i = 0; i < newThis.final.length; ++i) {
+    var state = newThis.final[i];
+    var cur = newThis.delta[state][''];
+    if (cur === undefined) {
+      cur = newThis.delta[state][''] = [];
+    }
+    cur.push('s');
+  }
+  return new NFA(newThis.alphabet, newThis.delta, ['s'], ['s']);
+}
+
+NFA.prototype.plus = function() {
+  /*  Give the Kleene plus of this NFA. */ // TODO this is copy-pasted from star
+  var newThis = this._clone('q');
+  newThis.delta['s'] = {'': newThis.initial};
+  for (var i = 0; i < newThis.final.length; ++i) {
+    var state = newThis.final[i];
+    var cur = newThis.delta[state][''];
+    if (cur === undefined) {
+      cur = newThis.delta[state][''] = [];
+    }
+    cur.push('s');
+  }
+  return new NFA(newThis.alphabet, newThis.delta, ['s'], newThis.final);
+}
+
+NFA.prototype.optional = function() {
+  /*  Give an NFA which is equivalent to this, but also accepts the empty string.
+      Corresponds to the '?' operator on regular expressions. */
+  var newThis = this._clone('q');
+  newThis.delta['s'] = {'': newThis.initial};
+  return new NFA(newThis.alphabet, newThis.delta, ['s'], newThis.final.concat(['s']));
+}
+
 
 // library stuff
 
 function deduped(l) { // non-destructively remove duplicates from list. also sorts.
   return l.filter(function(val, index, arr) { return arr.indexOf(val) == index; }).sort();
 }
-
 
 
 var oddb = new DFA( // ends in an odd number of b's
@@ -396,4 +509,10 @@ var zoz = new NFA( // strings containing '010' as a substring.
   ['3'] // set of accepting states
 );
 
-console.log(JSON.stringify(JSON.parse(zoz.minimized().serialized()), null, '  ')); // prints a human-readable serialization of the minimal equivalent DFA.
+//console.log(JSON.stringify(JSON.parse(zoz.minimized().serialized()), null, '  ')); // prints a human-readable serialization of the minimal equivalent DFA.
+
+console.log(require('util').inspect(
+  oddb.to_NFA().union(evena.to_NFA())
+, {depth: null}));
+
+console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
