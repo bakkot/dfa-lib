@@ -465,6 +465,20 @@ NFA.prototype.optional = function() {
   return new NFA(newThis.alphabet, newThis.delta, ['s'], newThis.final.concat(['s']));
 }
 
+NFA.for = function(str, alphabet) {
+  /*  Construct an NFA which matches exactly the string given. */
+  // TODO check str in alphabet*
+  var cur = 's';
+  var delta = {'s': {}};
+  for (var i = 0; i < str.length; ++i) {
+    var next = 'q' + (i+1);
+    delta[cur][str[i]] = [next];
+    delta[next] = {};
+    cur = next;
+  }
+  return new NFA(alphabet, delta, ['s'], [cur]);
+}
+
 
 // library stuff
 
@@ -511,8 +525,10 @@ var zoz = new NFA( // strings containing '010' as a substring.
 
 //console.log(JSON.stringify(JSON.parse(zoz.minimized().serialized()), null, '  ')); // prints a human-readable serialization of the minimal equivalent DFA.
 
-console.log(require('util').inspect(
-  oddb.to_NFA().union(evena.to_NFA())
-, {depth: null}));
-
-console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
+// console.log(require('util').inspect(
+//   oddb.to_NFA().union(evena.to_NFA())
+// , {depth: null}));
+// 
+// console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
+// 
+console.log(NFA.for('ab', ['a', 'b']));
