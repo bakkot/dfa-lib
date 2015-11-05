@@ -166,11 +166,11 @@ DFA.prototype.serialized = function() {
   /*  Give a string representing a JSON serialization of this DFA, discarding state names.
       Deterministic in the following strong sense: if two DFAs are identical up to state
       names, then they will serialize to the same string. */
+  var newStates = [this.initial].concat(this.states.filter((function(s){return s !== this.initial;}).bind(this))); // reorder so initial state is 0. also, cannot wait for arrow functions. TODO write this line better (using slice, probably)
   function get_name(state) {
     /*  Helper: state -> canonical name */
-    return this.states.indexOf(state);
+    return newStates.indexOf(state);
   }
-  get_name = get_name.bind(this);
   
   function reprEscape(str) { // does not handle unicode or exceptional cases properly.
     return str.replace(/["\\]/g, function(c) { return '\\' + c; })
@@ -179,7 +179,7 @@ DFA.prototype.serialized = function() {
   
   var alphabet = this.alphabet.slice(0).sort();
   var deltaStr = '{';
-  for (var i = 0; i < this.states.length; ++i) {
+  for (var i = 0; i < newStates.length; ++i) {
     if (i !== 0) {
       deltaStr += ', ';
     }
@@ -189,7 +189,7 @@ DFA.prototype.serialized = function() {
       if (j !== 0) {
         deltaStr += ', ';
       }
-      deltaStr += '"' + reprEscape(sym) + '": "' + get_name(this.delta[this.states[i]][sym]) + '"';
+      deltaStr += '"' + reprEscape(sym) + '": "' + get_name(this.delta[newStates[i]][sym]) + '"';
     }
     deltaStr += '}';
   }
@@ -519,7 +519,7 @@ var zoz = new NFA( // strings containing '010' as a substring.
     2: {0: ['3']},
     3: {0: ['3'], 1: ['3']},
   },
-  ['0'], // set of initial states
+  ['1'], // set of initial states
   ['3'] // set of accepting states
 );
 
@@ -532,6 +532,8 @@ var zoz = new NFA( // strings containing '010' as a substring.
 // console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
 // 
 //console.log(NFA.for('ab', ['a', 'b']));
+
+console.log(zoz.minimized().serialized());
 
 global['DFA'] = DFA;
 global['NFA'] = NFA;

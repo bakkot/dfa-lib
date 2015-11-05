@@ -1,31 +1,26 @@
 var gtool = require('cfgrammar-tool');
 require('./dfa');
 
-var Grammar = gtool.types.Grammar;
-var Rule = gtool.types.Rule;
 var astPrinter = gtool.printers.astPrinter;
 var parser = gtool.parser;
 
 var rules = [
-  Rule('U', [NT('C'), T('|'), NT('U')]),
+  Rule('U', [NT('C'), T('|'), NT('U')]), // union
   Rule('U', [T('^'), NT('U')]),
   Rule('U', []),
   Rule('U', [NT('C')]),
-  Rule('C', [NT('P'), NT('C')]),
-  Rule('C', [NT('P')]),
-  Rule('P', [NT('O'), T('?')]),
-  Rule('P', [NT('O')]),
-  Rule('O', [NT('A'), T('+')]),
-  Rule('O', [NT('A'), T('*')]),
-  Rule('O', [NT('A')]),
-  Rule('A', [T('('), NT('U'), T(')')]),
+  Rule('C', [NT('O'), NT('C')]), // concatenation
+  Rule('C', [NT('O')]),
+  Rule('O', [NT('R'), T('?')]), // option
+  Rule('O', [NT('R')]),
+  Rule('R', [NT('A'), T('*')]), // repetition
+  Rule('R', [NT('A'), T('+')]),
+  Rule('R', [NT('A')]),
+  Rule('A', [T('('), NT('U'), T(')')]), // atom
   Rule('A', [NT('L')]),
 ];
 
-var alphabet = ['a', 'b'];
-rules = rules.concat(alphabet.map(function(c){ return Rule('L', [T(c)]); }));
-
-function ruleNamer(rule) {
+function ruleNamer(rule) { // strictly speaking, this could be folded in to to_NFA, but it's nice to make a readable AST.
   switch (rules.indexOf(rule)) {
     case 0:
       return 'Union';
@@ -37,11 +32,11 @@ function ruleNamer(rule) {
       return 'Concatenation';
     case 6:
       return 'Option';
-    case 7:
-      return 'Star';
     case 8:
+      return 'Star';
+    case 9:
       return 'Plus';
-    case 10:
+    case 11:
       return 'Paren';
     default:
       throw 'Unreachable: ' + rules.indexOf(rule);
@@ -49,8 +44,9 @@ function ruleNamer(rule) {
 }
 
 
-function parse(regex) {
-  var res = parser.parse(Grammar(rules, 'U'), regex);
+function parse(regex, alphabet) {
+  var grammar = Grammar(rules.concat(alphabet.map(function(c){ return Rule('L', [T(c)]); })), 'U');
+  var res = parser.parse(grammar, regex);
   if (res.length !== 1) throw 'Couldn\'t unambiguously parse: ' + res.length;
   return astPrinter(res[0], true, true, ruleNamer);
 }
@@ -81,12 +77,12 @@ function to_NFA(regex, alphabet) {
         throw 'Unreachable: ' + tree.type;
     }
   }
-  return reduce(parse(regex));
+  return reduce(parse(regex, alphabet));
 }
 
+// TODO: to_regex, just on principle
 
-
-var n = to_NFA('a?b?', ['a', 'b']);
+var n = to_NFA('(ababab)*', ['a', 'b']);
 console.log(require('util').inspect(
   n.minimized()
 , {depth: null}));
