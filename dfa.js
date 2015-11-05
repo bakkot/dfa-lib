@@ -166,7 +166,23 @@ DFA.prototype.serialized = function() {
   /*  Give a string representing a JSON serialization of this DFA, discarding state names.
       Deterministic in the following strong sense: if two DFAs are identical up to state
       names, then they will serialize to the same string. */
-  var newStates = [this.initial].concat(this.states.filter((function(s){return s !== this.initial;}).bind(this))); // reorder so initial state is 0. also, cannot wait for arrow functions. TODO write this line better (using slice, probably)
+  //var newStates = [this.initial].concat(this.states.filter((function(s){return s !== this.initial;}).bind(this))); // reorder so initial state is 0. also, cannot wait for arrow functions. TODO write this line better (using slice, probably)
+  
+  var newStates = [this.initial];
+  var processing = [this.initial];
+  while (processing.length > 0) {
+    var cur = processing.shift();
+    var map = this.delta[cur];
+    for (var i = 0; i < this.alphabet.length; ++i) { // todo this is ANOTHER FSCKING BFS
+      var next = map[this.alphabet[i]];
+      if (newStates.indexOf(next) === -1) { // todo with another indexof
+        newStates.push(next);
+        processing.push(next);
+      }
+    }
+  }
+
+
   function get_name(state) {
     /*  Helper: state -> canonical name */
     return newStates.indexOf(state);
