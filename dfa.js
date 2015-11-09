@@ -55,22 +55,11 @@ DFA.prototype.minimized = function() {
 DFA.prototype.without_unreachables = function() { // todo naming conventions
   /*  non-destructively produce equivalent DFA without unreachable states */
   var reached = {};
-  reached[this.initial] = true;
-  var processing = [this.initial];
-  while (processing.length > 0) {
-    var cur = processing.shift();
-    var map = this.delta[cur];
-    for (var i = 0; i < this.alphabet.length; ++i) {
-      var next = map[this.alphabet[i]];
-      if (!reached[next]) {
-        reached[next] = true;
-        processing.push(next);
-      }
-    }
-  }
-  var newStates = Object.getOwnPropertyNames(reached);
+  crawl(this.alphabet, this.initial, this.delta, {state_fn: function(s){reached[s]=true;}});
+  
   var newDelta = {};
-  for (i = 0; i < newStates.length; ++i) {
+  var newStates = Object.getOwnPropertyNames(reached);
+  for (var i = 0; i < newStates.length; ++i) {
     newDelta[newStates[i]] = this.delta[newStates[i]];
   }
   var newFinal = this.final.filter(reached.hasOwnProperty.bind(reached));
@@ -86,28 +75,7 @@ DFA.prototype.complemented = function() {
 DFA.prototype.find_passing = function() {
   /*  Returns one of the shortest strings which will be accepted by the DFA, if such exists.
       Otherwise returns null. */
-  // todo dedupe code between this and without_unreachables
-  if (this.final.indexOf(this.initial) !== -1) {
-    return '';
-  }
-  var reached = {};
-  reached[this.initial] = '';
-  var processing = [this.initial];
-  while (processing.length > 0) {
-    var cur = processing.shift();
-    var map = this.delta[cur];
-    for (var i = 0; i < this.alphabet.length; ++i) {
-      var next = map[this.alphabet[i]];
-      if (reached[next] === undefined) {
-        if (this.final.indexOf(next) !== -1) { // todo for consistency we maybe should use a set, instead of indexOf. although also todo benchmark things instead of just doing best theoretical performance
-          return reached[cur] + this.alphabet[i];
-        }
-        reached[next] = reached[cur] + this.alphabet[i];
-        processing.push(next);
-      }
-    }
-  }
-  return null;
+  return crawl(this.alphabet, this.initial, this.delta, {should_exit: function(s){return this.final.indexOf(s) !== -1;}.bind(this)});
 }
 
 DFA.prototype.intersect = function(other) {
@@ -118,36 +86,29 @@ DFA.prototype.intersect = function(other) {
     return this.states.indexOf(pair[0]) + ' ' + other.states.indexOf(pair[1]);
   }
   get_name = get_name.bind(this);
-  
-  // this algorithm is very similar to NFA.prototype.to_DFA, and is, todo, yet another BFS
-  var processing = [[this.initial, other.initial]];
-  var newInitial = get_name(processing[0]);
+
+  var initial = [this.initial, other.initial];
   var newFinal = [];
-  var seen = [newInitial];
   var newDelta = {};
-  
-  while (processing.length > 0) {
-    var cur = processing.pop();
-    var curName = get_name(cur);
+
+  var thiz = this;
+  function follow(state, sym) {
+    var next = [thiz.delta[state[0]][sym], other.delta[state[1]][sym]];
+    newDelta[get_name(state)][sym] = get_name(next);
+    return next;
+  }
+
+  function state_fn(state) {
+    var curName = get_name(state);
     newDelta[curName] = {};
-    
-    if (this.final.indexOf(cur[0]) !== -1 && other.final.indexOf(cur[1]) !== -1) {
+    if (thiz.final.indexOf(state[0]) !== -1 && other.final.indexOf(state[1]) !== -1) {
       newFinal.push(curName);
     }
-    
-    for (var i = 0; i < this.alphabet.length; ++i) {
-      var sym = this.alphabet[i];
-      var next = [this.delta[cur[0]][sym], other.delta[cur[1]][sym]];
-      var nextName = get_name(next);
-      newDelta[curName][sym] = nextName;
-      if (seen.indexOf(nextName) === -1) { // todo this and all other indexOfs
-        seen.push(nextName);
-        processing.push(next);
-      }
-    }
   }
-  
-  return new DFA(this.alphabet, newDelta, newInitial, newFinal);
+
+  crawl(this.alphabet, initial, follow, {get_name: get_name, state_fn: state_fn});
+
+  return new DFA(this.alphabet, newDelta, get_name(initial), newFinal);
 }
 
 DFA.prototype.find_equivalence_counterexamples = function(other) {
@@ -162,37 +123,54 @@ DFA.prototype.find_equivalence_counterexamples = function(other) {
   ];
 }
 
+DFA.prototype.dottified = function() {
+  /*  Return a string representation of this DFA as a graph in Dot format. */
+  var out = 'digraph foo {\n  rankdir=LR;\n  "__start" [style=invis label="" shape=plain];\n  node [shape=circle];';
+  var thiz = this;
+  this.states.filter(function(s){return thiz.final.indexOf(s) == -1;}).forEach(function(state){
+    out += ' "' + reprEscape(state) + '";';
+  });
+  out += '\n  node [shape = doublecircle];';
+  this.final.forEach(function(state){
+    out += ' "' + reprEscape(state) + '";';
+  });
+  out += '\n  "__start" -> "' + reprEscape(this.initial) + '";';
+  this.states.forEach(function(state){
+    var edges = {};
+    thiz.states.forEach(function(s){
+      edges[s] = [];
+    });
+    thiz.alphabet.forEach(function(c){
+      edges[thiz.delta[state][c]].push(c);
+    });
+    thiz.states.forEach(function(target){
+      if (edges[target].length === 0) {
+        return;
+      }
+      out += '\n  "' + reprEscape(state) +
+              '" -> "' + reprEscape(target) +
+              '" [label="' + edges[target].map(reprEscape).join(',') + '"];'
+    });
+  });
+  out += '\n}\n';
+  return out;
+}
+
 DFA.prototype.serialized = function() {
-  /*  Give a string representing a JSON serialization of this DFA, discarding state names.
+  /*  Give a string representing a JSON serialization of this DFA, discarding state names and unreachable states.
       Deterministic in the following strong sense: if two DFAs are identical up to state
       names, then they will serialize to the same string. */
   //var newStates = [this.initial].concat(this.states.filter((function(s){return s !== this.initial;}).bind(this))); // reorder so initial state is 0. also, cannot wait for arrow functions. TODO write this line better (using slice, probably)
   
-  var newStates = [this.initial];
-  var processing = [this.initial];
-  while (processing.length > 0) {
-    var cur = processing.shift();
-    var map = this.delta[cur];
-    for (var i = 0; i < this.alphabet.length; ++i) { // todo this is ANOTHER FSCKING BFS
-      var next = map[this.alphabet[i]];
-      if (newStates.indexOf(next) === -1) { // todo with another indexof
-        newStates.push(next);
-        processing.push(next);
-      }
-    }
-  }
-
+  // first, canonically order states
+  var newStates = [];
+  crawl(this.alphabet, this.initial, this.delta, {state_fn: function(s){newStates.push(s);}});
 
   function get_name(state) {
     /*  Helper: state -> canonical name */
     return newStates.indexOf(state);
   }
-  
-  function reprEscape(str) { // does not handle unicode or exceptional cases properly.
-    return str.replace(/["\\]/g, function(c) { return '\\' + c; })
-      .replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-  }
-  
+    
   var alphabet = this.alphabet.slice(0).sort();
   var deltaStr = '{';
   for (var i = 0; i < newStates.length; ++i) {
@@ -302,38 +280,31 @@ NFA.prototype.to_DFA = function() {
     return states.map(this.states.indexOf.bind(this.states)).sort().join(' ');
   }
   get_name = get_name.bind(this);
-  
-  var processing = [this.epsilon_closure(this.initial)];
-  var newInitial = get_name(processing[0]);
+
+  var initial = this.epsilon_closure(this.initial);
   var newFinal = [];
-  var seen = [newInitial];
   var newDelta = {};
-  
-  while (processing.length > 0) {
-    var cur = processing.pop();
-    var curName = get_name(cur);
+
+  var thiz = this;
+  function follow(state, sym) {
+    var next = thiz.step(state, sym);
+    newDelta[get_name(state)][sym] = get_name(next);
+    return next;
+  }
+
+  function state_fn(state) {
+    var curName = get_name(state);
     newDelta[curName] = {};
-    
-    for (var i = 0; i < this.final.length; ++i) {
-      if (cur.indexOf(this.final[i]) !== -1) { // i.e., cur contains an accepting state
+    for (var i = 0; i < thiz.final.length; ++i) {
+      if (state.indexOf(thiz.final[i]) !== -1) { // i.e., state contains an accepting state
         newFinal.push(curName);
         break;
       }
     }
-    
-    for (i = 0; i < this.alphabet.length; ++i) {
-      var sym = this.alphabet[i];
-      var next = this.step(cur, sym);
-      var nextName = get_name(next);
-      newDelta[curName][sym] = nextName;
-      if (seen.indexOf(nextName) === -1) { // todo this and all other indexOfs
-        seen.push(nextName);
-        processing.push(next);
-      }
-    }
   }
-  
-  return new DFA(this.alphabet, newDelta, newInitial, newFinal);
+
+  crawl(this.alphabet, initial, follow, {get_name: get_name, state_fn: state_fn});
+  return new DFA(this.alphabet, newDelta, get_name(initial), newFinal);
 }
 
 NFA.prototype.minimized = function() { // TODO remove this?
@@ -495,11 +466,108 @@ NFA.for = function(str, alphabet) {
   return new NFA(alphabet, delta, ['s'], [cur]);
 }
 
+// TODO serialize NFA
+
+NFA.prototype.dottified = function() {
+  /*  Return a string representation of this NFA as a graph in Dot format.
+      For technical reasons, epsilon transitions are represented as '_'. */
+  var out = 'digraph foo {\n  rankdir=LR;\n  "__start" [style=invis label="" shape=plain];\n  node [shape=circle];';
+  var thiz = this;
+  this.states.filter(function(s){return thiz.final.indexOf(s) == -1;}).forEach(function(state){
+    out += ' "' + reprEscape(state) + '";';
+  });
+  out += '\n  node [shape = doublecircle];';
+  this.final.forEach(function(state){
+    out += ' "' + reprEscape(state) + '";';
+  });
+  this.initial.forEach(function(state){
+    out += '\n  "__start" -> "' + reprEscape(state) + '";';
+  });
+  this.states.forEach(function(state){
+    var edges = {};
+    thiz.states.forEach(function(s){
+      edges[s] = [];
+    });
+    thiz.alphabet.concat('').forEach(function(c){
+      var transitions = thiz.delta[state][c];
+      if (transitions === undefined) {
+        return;
+      }
+      if (c === '') {
+        c = '_';
+      }
+      transitions.forEach(function(target){
+        edges[target].push(c);
+      });
+    });
+    thiz.states.forEach(function(target){
+      if (edges[target].length === 0) {
+        return;
+      }
+      out += '\n  "' + reprEscape(state) +
+              '" -> "' + reprEscape(target) +
+              '" [label="' + edges[target].map(reprEscape).join(',') + '"];'
+    });
+  });
+  out += '\n}\n';
+  return out;
+}
+
 
 // library stuff
 
 function deduped(l) { // non-destructively remove duplicates from list. also sorts.
   return l.filter(function(val, index, arr) { return arr.indexOf(val) == index; }).sort();
+}
+
+function reprEscape(str) { // does not handle unicode or exceptional cases properly.
+  return str.replace(/["\\]/g, function(c) { return '\\' + c; })
+    .replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+}
+
+function crawl(alphabet, initial, follow, options) {
+  /*  Walk an automaton graph.
+      Follow should be either a function from state, sym to state, or a DFA delta object.
+      Options are state_fn, which is run once for each state encountered,
+      get_name, which is a map from states to their names (so that the actual state objects can be complex)
+      and should_exit, which takes a state and returns a boolean; if true, crawl immediately returns the string which caused that state to be reached.
+      Otherwise returns null. */
+  var state_fn = options.state_fn || function(){};
+  var get_name = options.get_name || function(x){return x;};
+  var should_exit = options.should_exit || function(){return false;};
+
+  if (should_exit(initial)) {
+    return '';
+  }
+
+  if (typeof follow === "object") {
+    var delta = follow;
+    follow = function(state, sym) {
+      return delta[state][sym];
+    }
+  }
+
+  var reached = Object.create(null);
+  reached[get_name(initial)] = '';
+  var processing = [initial];
+  while (processing.length > 0) {
+    var cur = processing.shift();
+    var curName = get_name(cur);
+    state_fn(cur);
+    for (var i = 0; i < alphabet.length; ++i) {
+      var sym = alphabet[i];
+      var next = follow(cur, sym);
+      var nextName = get_name(next);
+      if (should_exit(next)) {
+        return reached[cur] + sym;
+      }
+      if (reached[nextName] === undefined) {
+        reached[nextName] = reached[curName] + sym;
+        processing.push(next);
+      }
+    }
+  }
+  return null;
 }
 
 
@@ -525,31 +593,5 @@ var evena = new DFA( // contains a positive even number of a's
   ['2']
 );
 
-//console.log(oddb.intersect(evena).find_passing()); // 'aab'
+console.log(oddb.serialized())
 
-var zoz = new NFA( // strings containing '010' as a substring.
-  ['0', '1'], // alphabet
-  { // transition table. Note that transitions are to sets of states, and that transitions can be absent (equivalent to mapping to the empty set).
-    0: {0: ['0', '1'], 1: ['0']},
-    1: {'': ['0'], 1: ['2']}, // Note also that states can transition on the empty string (i.e., an epsilon transition), though it's entirely redundant in this particular automaton.
-    2: {0: ['3']},
-    3: {0: ['3'], 1: ['3']},
-  },
-  ['1'], // set of initial states
-  ['3'] // set of accepting states
-);
-
-//console.log(JSON.stringify(JSON.parse(zoz.minimized().serialized()), null, '  ')); // prints a human-readable serialization of the minimal equivalent DFA.
-
-// console.log(require('util').inspect(
-//   oddb.to_NFA().union(evena.to_NFA())
-// , {depth: null}));
-// 
-// console.log(oddb.to_NFA().union(evena.to_NFA()).to_DFA())
-// 
-//console.log(NFA.for('ab', ['a', 'b']));
-
-console.log(zoz.minimized().serialized());
-
-global['DFA'] = DFA;
-global['NFA'] = NFA;
