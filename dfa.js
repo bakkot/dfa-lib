@@ -160,17 +160,16 @@ DFA.prototype.serialized = function() {
   /*  Give a string representing a JSON serialization of this DFA, discarding state names and unreachable states.
       Deterministic in the following strong sense: if two DFAs are identical up to state
       names, then they will serialize to the same string. */
-  //var newStates = [this.initial].concat(this.states.filter((function(s){return s !== this.initial;}).bind(this))); // reorder so initial state is 0. also, cannot wait for arrow functions. TODO write this line better (using slice, probably)
-  
-  // first, canonically order states
+
+  // canonically order states
   var newStates = [];
   crawl(this.alphabet, this.initial, this.delta, {state_fn: function(s){newStates.push(s);}});
 
+  // then serialize using said order
   function get_name(state) {
     /*  Helper: state -> canonical name */
     return newStates.indexOf(state);
   }
-    
   var alphabet = this.alphabet.slice(0).sort();
   var deltaStr = '{';
   for (var i = 0; i < newStates.length; ++i) {
@@ -222,7 +221,7 @@ NFA.prototype.epsilon_closure = function(states) {
       Incidentally also deduplicates. */
   var out = deduped(states);
   var processing = out.slice(0);
-  while (processing.length > 0) { // TODO this is yet another BFS
+  while (processing.length > 0) {
     var cur = processing.pop();
     var next = this.delta[cur][''];
     if (next === undefined) {
@@ -307,7 +306,7 @@ NFA.prototype.to_DFA = function() {
   return new DFA(this.alphabet, newDelta, get_name(initial), newFinal);
 }
 
-NFA.prototype.minimized = function() { // TODO remove this?
+NFA.prototype.minimized = function() {
   /*  non-destructively return the minimal DFA equivalent to this automata.
       state names will become meaningless. */
   return this.to_DFA().minimized();
@@ -430,18 +429,17 @@ NFA.prototype.star = function() {
 }
 
 NFA.prototype.plus = function() {
-  /*  Give the Kleene plus of this NFA. */ // TODO this is copy-pasted from star
+  /*  Give the Kleene plus of this NFA. */
   var newThis = this._clone('q');
-  newThis.delta['s'] = {'': newThis.initial};
   for (var i = 0; i < newThis.final.length; ++i) {
     var state = newThis.final[i];
     var cur = newThis.delta[state][''];
     if (cur === undefined) {
       cur = newThis.delta[state][''] = [];
     }
-    cur.push('s');
+    cur.splice(cur.length, 0, newThis.initial);
   }
-  return new NFA(newThis.alphabet, newThis.delta, ['s'], newThis.final);
+  return newThis;
 }
 
 NFA.prototype.optional = function() {
@@ -466,7 +464,7 @@ NFA.for = function(str, alphabet) {
   return new NFA(alphabet, delta, ['s'], [cur]);
 }
 
-// TODO serialize NFA
+// TODO serialize NFA?
 
 NFA.prototype.dottified = function() {
   /*  Return a string representation of this NFA as a graph in Dot format.
