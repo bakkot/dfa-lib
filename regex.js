@@ -1,12 +1,13 @@
 var gtool = require('cfgrammar-tool');
-require('./dfa');
+var lib = require('.');
+var NFA = lib.NFA;
 
 var astPrinter = gtool.printers.astPrinter;
 var parser = gtool.parser;
 
 var rules = [
   Rule('U', [NT('C'), T('|'), NT('U')]), // union
-  Rule('U', [T('^'), NT('U')]),
+  Rule('U', [T('|'), NT('U')]),
   Rule('U', []),
   Rule('U', [NT('C')]),
   Rule('C', [NT('O'), NT('C')]), // concatenation
@@ -15,9 +16,22 @@ var rules = [
   Rule('O', [NT('R')]),
   Rule('R', [NT('A'), T('*')]), // repetition
   Rule('R', [NT('A'), T('+')]),
+  Rule('R', [NT('A'), T('^'), NT('I')]),
   Rule('R', [NT('A')]),
   Rule('A', [T('('), NT('U'), T(')')]), // atom
   Rule('A', [NT('L')]),
+  Rule('I', [NT('D')]), // int
+  Rule('I', [NT('I'), NT('D')]),
+  Rule('D', [T('0')]),
+  Rule('D', [T('1')]),
+  Rule('D', [T('2')]),
+  Rule('D', [T('3')]),
+  Rule('D', [T('4')]),
+  Rule('D', [T('5')]),
+  Rule('D', [T('6')]),
+  Rule('D', [T('7')]),
+  Rule('D', [T('8')]),
+  Rule('D', [T('9')]),
 ];
 
 function ruleNamer(rule) { // strictly speaking, this could be folded in to to_NFA, but it's nice to make a readable AST.
@@ -36,8 +50,12 @@ function ruleNamer(rule) { // strictly speaking, this could be folded in to to_N
       return 'Star';
     case 9:
       return 'Plus';
-    case 11:
+    case 10:
+      return 'Repetition';
+    case 12:
       return 'Paren';
+    case 15:
+      return 'Digits';
     default:
       throw 'Unreachable: ' + rules.indexOf(rule);
   }
@@ -69,6 +87,8 @@ function to_NFA(regex, alphabet) {
         return reduce(tree.children[0]).star();
       case 'Plus':
         return reduce(tree.children[0]).plus();
+      case 'Repetition':
+        return reduce(tree.children[0]).repeat(parseInt(reduceDigits(tree.children[1])));
       case 'Paren':
         return reduce(tree.children[0]);
       case 'Terminal':
@@ -77,14 +97,20 @@ function to_NFA(regex, alphabet) {
         throw 'Unreachable: ' + tree.type;
     }
   }
+
+  function reduceDigits(tree) { // Note: string concatenation
+    if (tree.type === 'Digits') {
+      return reduceDigits(tree.children[0]) + reduceDigits(tree.children[1]);
+    } else { // Terminal
+      return tree.value;
+    }
+  }
+
   return reduce(parse(regex, alphabet));
 }
 
+
 // TODO: to_regex, just on principle
 
-var n = to_NFA('(ababab)*', ['a', 'b']);
-console.log(require('util').inspect(
-  n.minimized()
-, {depth: null}));
-
-console.log(n.accepts(''));
+module.exports = to_NFA;
+module.exports.parse = parse;

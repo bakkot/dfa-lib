@@ -442,6 +442,19 @@ NFA.prototype.plus = function() {
   return newThis;
 }
 
+NFA.prototype.repeat = function(n) {
+  /* Given the NFA produced by repeating this NFA a finite number of times. */
+  if (n < 0) {
+    throw 'Can\'t repeat a negative number of times (' + n + ')';
+  } else if (n === 0) {
+    return NFA.for('');
+  } else if (n === 1) {
+    return this;
+  } else {
+    return this.concat(this.repeat(n-1));
+  }
+}
+
 NFA.prototype.optional = function() {
   /*  Give an NFA which is equivalent to this, but also accepts the empty string.
       Corresponds to the '?' operator on regular expressions. */
@@ -569,27 +582,5 @@ function crawl(alphabet, initial, follow, options) {
 }
 
 
-var oddb = new DFA( // ends in an odd number of b's
-  ['a', 'b'], // alphabet
-  { // transition table
-    0: {'a': '0', 'b': '1'},
-    1: {'a': '0', 'b': '0'},
-  },
-  '0', // start state
-  ['1'] // accepting states
-);
-
-var evena = new DFA( // contains a positive even number of a's
-  ['a', 'b'],
-  {
-    0: {'a': '1', 'b': '0'},
-    1: {'a': '2', 'b': '1'},
-    2: {'a': '3', 'b': '2'},
-    3: {'a': '2', 'b': '3'},
-  },
-  '0',
-  ['2']
-);
-
-console.log(oddb.serialized())
-
+module.exports.NFA = NFA;
+module.exports.DFA = DFA;
