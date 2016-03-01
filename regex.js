@@ -1,5 +1,5 @@
 var gtool = require('cfgrammar-tool');
-var lib = require('.');
+var lib = require('dfa-lib');
 var NFA = lib.NFA;
 
 var astPrinter = gtool.printers.astPrinter;
@@ -69,8 +69,16 @@ function parse(regex, alphabet) {
   return astPrinter(res[0], true, true, ruleNamer);
 }
 
+function guessAlphabet(regex) {
+  return regex.replace(/[\|\*\+\^\?\(\)0-9]/g, '').split('').filter(function(c,i,s){return s.indexOf(c)===i;}).sort();
+}
 
 function to_NFA(regex, alphabet) {
+  if (typeof alphabet === 'undefined') {
+    alphabet = guessAlphabet(regex);
+  } else if (typeof alphabet === 'string') {
+    alphabet = alphabet.split('');
+  }
   function reduce(tree) {
     switch (tree.type) {
       case 'Union':

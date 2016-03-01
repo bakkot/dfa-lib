@@ -30,6 +30,10 @@ DFA.prototype.accepts = function(str) {
   return this.final.indexOf(state) !== -1;
 }
 
+DFA.prototype.test = function(str) { // alias for accepts, to match JS regex
+  return this.accepts(str);
+}
+
 DFA.prototype.to_NFA = function() {
   /*  return the NFA which is this DFA. */
   var newDelta = {};
@@ -272,6 +276,10 @@ NFA.prototype.accepts = function(str) {
   return false;
 }
 
+NFA.prototype.test = function(str) { // alias for accepts, to match JS regex
+  return this.accepts(str);
+}
+
 NFA.prototype.to_DFA = function() {
   /*  Return an equivalent DFA. State names become meaningless. */
   function get_name(states) {
@@ -437,7 +445,10 @@ NFA.prototype.plus = function() {
     if (cur === undefined) {
       cur = newThis.delta[state][''] = [];
     }
-    cur.splice(cur.length, 0, newThis.initial);
+    for (var j = 0; j < newThis.initial.length; ++j) {
+      cur.push(newThis.initial[j]);
+    }
+    //cur.splice(cur.length, 0, newThis.initial);
   }
   return newThis;
 }
@@ -447,7 +458,7 @@ NFA.prototype.repeat = function(n) {
   if (n < 0) {
     throw 'Can\'t repeat a negative number of times (' + n + ')';
   } else if (n === 0) {
-    return NFA.for('');
+    return NFA.for('', this.alphabet);
   } else if (n === 1) {
     return this;
   } else {
