@@ -5,18 +5,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RegEq</title>
-  <script type="text/javascript" src="https://code.jquery.com/jquery-2.2.1.min.js"></script>
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css" integrity="sha384-fLW2N01lMqjakBkx3l/M9EahuwpSfeNvV63J5ezn3uZzapT0u7EYsXMjQV+0En5r" crossorigin="anonymous">
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS" crossorigin="anonymous"></script>
 
   <script type="text/javascript" src="dfa-lib.js"></script>
   <script type="text/javascript" src="ui.js"></script>
-  <style>
-  body {
-    font-size: 14px;
-  }
-  </style>
 </head>
 <body>
   <div class="container">
@@ -33,21 +25,21 @@
     <hr>
     <div class="row">
       <div class="col-xs-12 h3 text-danger" id="error-div">
-        Couldn't parse <span id="first-error">first regex</span><span id="second-error">second regex</span><span id="both-error">either regex</span>.
+        Couldn't parse <span id="first-error">first regex</span><span id="second-error">second regex</span><span id="both-error">either regex</span>
       </div>
 
       <div class="col-xs-12 h3" id="equiv-div">
         <span class="text-success">Equivalent</span>
       </div>
+
       <div class="col-xs-12 h3" id="unequiv-div">
         <div id="first-accept-div">
           Accepted by first but not second:
-          <pre id="first-accept-pre">asdf</pre>
+          <pre id="first-accept-pre"></pre>
         </div>
-
         <div id="second-accept-div">
           Accepted by second but not first:
-          <pre id="second-accept-pre">asdf</pre>
+          <pre id="second-accept-pre"></pre>
         </div>
       </div>
     </div>
