@@ -32,8 +32,8 @@ function union(l1, l2) {
 function update() {
   hideAll();
 
-  var m1 = parse($('#regex-1').value);
-  var m2 = parse($('#regex-2').value);
+  var m1 = parse($('#regex-1').value.replace(/\s/g, ''));
+  var m2 = parse($('#regex-2').value.replace(/\s/g, ''));
 
   if (!m1 || !m2) {
     show($('#error-div'));
