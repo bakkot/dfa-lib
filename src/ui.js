@@ -1,3 +1,5 @@
+var to_NFA = require('./regex');
+
 function $(s){
   return document.querySelector(s);
 }

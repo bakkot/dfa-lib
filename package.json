@@ -11,8 +11,19 @@
   "dependencies": {
     "cfgrammar-tool": "^1.0.0"
   },
+  "devDependencies": {
+    "@rollup/plugin-babel": "^5.3.1",
+    "@rollup/plugin-commonjs": "^22.0.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
+    "rollup": "^2.72.1",
+    "rollup-plugin-terser": "^7.0.2"
+  },
   "directories": {},
-  "main": "index.js",
+  "main": "src/dfa-lib.js",
+  "scripts": {
+    "build": "rollup -c rollup.config.js",
+    "dev": "rollup -c rollup.config.js -w --config-dev"
+  },
   "keywords": [
     "automata",
     "dfa",
