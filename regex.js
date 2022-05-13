@@ -4,6 +4,7 @@ var NFA = lib.NFA;
 
 var astPrinter = gtool.printers.astPrinter;
 var parser = gtool.parser;
+var { Grammar, Rule, NT, T } = gtool.types;
 
 var rules = [
   Rule('U', [NT('C'), T('|'), NT('U')]), // union
