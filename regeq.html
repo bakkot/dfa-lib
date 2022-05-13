@@ -9,6 +9,19 @@
 
   <script type="text/javascript" src="dfa-lib.js"></script>
   <script type="text/javascript" src="ui.js"></script>
+  <style>
+    details > summary {
+      font-weight: bold;
+      cursor: pointer;
+      display: list-item;
+      margin-bottom: 1ex;
+    }
+    details > dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-column-gap: 2em;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -43,6 +56,36 @@
         </div>
       </div>
     </div>
+    <hr>
+    <details>
+      <summary>Syntax</summary>
+      <dl>
+        <dt>a | b</dt>
+        <dd>union</dd>
+
+        <dt>a b</dt>
+        <dd>concatenation</dd>
+
+        <dt>a?</dt>
+        <dd>option</dd>
+
+        <dt>a*</dt>
+        <dd>repetition (zero or more)</dd>
+
+        <dt>a+</dt>
+        <dd>repetition (at least one)</dd>
+
+        <dt>a^N</dt>
+        <dd>repetition (exact count)</dd>
+
+        <dt>(a)</dt>
+        <dd>atom</dd>
+
+        <dt>[space]</dt>
+        <dd>ignored</dd>
+      </dl>
+      (in order of increasing precedence)
+    </details>
     <hr>
     <footer class="footer">
       <p>Created by <a href="https://github.com/bakkot">Kevin Gibbons</a> for CS103 at Stanford.</p>
