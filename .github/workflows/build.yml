@@ -1,0 +1,28 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy to gh-pages
+        if: github.ref == 'refs/heads/master'
+        run: |
+          cd dist
+          git init -b gh-pages
+          git config user.name "gh-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update page to ${{ github.sha }}"
+          git push -f \
+            https://${{ github.repository_owner }}:${{ github.token }}@github.com/${{ github.repository }} gh-pages:gh-pages

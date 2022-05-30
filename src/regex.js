@@ -1,5 +1,5 @@
 var gtool = require('cfgrammar-tool');
-var lib = require('dfa-lib');
+var lib = require('./dfa-lib');
 var NFA = lib.NFA;
 
 var astPrinter = gtool.printers.astPrinter;
