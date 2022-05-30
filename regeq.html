@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RegEq</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+  <script type="text/javascript" src="ui.js"></script>
+  <style>
+    details > summary {
+      font-weight: bold;
+      cursor: pointer;
+      display: list-item;
+      margin-bottom: 1ex;
+    }
+    details > dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-column-gap: 2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header">
+      <h1>RegEq</h1>
+      <p class="lead">Check equivalence of regular expressions</p>
+    </div>
+    <div class="row">
+      <div class="col-xs-6">
+        <input class="form-control" placeholder="Regular expression" id="regex-1" /><br>
+        <input class="form-control" placeholder="Regular expression" id="regex-2" /><br>
+      </div>
+    </div>
+    <hr>
+    <div class="row">
+      <div class="col-xs-12 h3 text-danger" id="error-div">
+        Couldn't parse <span id="first-error">first regex</span><span id="second-error">second regex</span><span id="both-error">either regex</span>
+      </div>
+
+      <div class="col-xs-12 h3" id="equiv-div">
+        <span class="text-success">Equivalent</span>
+      </div>
+
+      <div class="col-xs-12 h3" id="unequiv-div">
+        <div id="first-accept-div">
+          Accepted by first but not second:
+          <pre id="first-accept-pre"></pre>
+        </div>
+        <div id="second-accept-div">
+          Accepted by second but not first:
+          <pre id="second-accept-pre"></pre>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <details>
+      <summary>Syntax</summary>
+      <dl>
+        <dt>a | b</dt>
+        <dd>union</dd>
+
+        <dt>a b</dt>
+        <dd>concatenation</dd>
+
+        <dt>a?</dt>
+        <dd>option</dd>
+
+        <dt>a*</dt>
+        <dd>repetition (zero or more)</dd>
+
+        <dt>a+</dt>
+        <dd>repetition (at least one)</dd>
+
+        <dt>a^N</dt>
+        <dd>repetition (exact count)</dd>
+
+        <dt>(a)</dt>
+        <dd>atom</dd>
+
+        <dt>[space]</dt>
+        <dd>ignored</dd>
+      </dl>
+      (in order of increasing precedence)
+    </details>
+    <hr>
+    <footer class="footer">
+      <p>Created by <a href="https://github.com/bakkot">Kevin Gibbons</a> for CS103 at Stanford.</p>
+    </footer>
+  </div>
+</body>
+</html>
